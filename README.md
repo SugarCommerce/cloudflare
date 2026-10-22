@@ -64,7 +64,7 @@ composer install
 composer test
 ```
 
-18 tests, all against `HttpClient\Fake` — nothing reaches Cloudflare. The request Cloudflare is sent; a refused hostname; validation methods; every way the two statuses combine; an outage that is not a failure; deletion with 404 as success; path encoding; and the `#[\NoDiscard]` on `create()`.
+21 tests, all against `HttpClient\Fake` — nothing reaches Cloudflare. The request Cloudflare is sent; a refused hostname; validation methods; every way the two statuses combine; an outage that is not a failure; deletion with 404 as success; path encoding, with an id or zone of `..` never sent; and the `#[\NoDiscard]` on `create()`.
 
 ## License
 
