@@ -23,6 +23,8 @@ namespace SugarCommerce\Cloudflare;
 final readonly class Hostname {
 
 	/**
+	 * A hostname, by id, with where it has got to.
+	 *
 	 * @since 1.0.0
 	 *
 	 * @param string $id       Cloudflare's id for it.

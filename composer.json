@@ -1,6 +1,6 @@
 {
     "name": "sugarcommerce/cloudflare",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Cloudflare for SaaS custom hostnames: add a customer's domain, ask how it is going, remove it, with Cloudflare's two separate verifications read as one status a shop can act on.",
     "type": "library",
     "license": "GPL-2.0-or-later",

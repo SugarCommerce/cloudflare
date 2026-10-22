@@ -31,9 +31,21 @@ namespace SugarCommerce\Cloudflare;
  */
 enum Status: string {
 
-	case Active  = 'active';
+	/**
+	 * Hostname and certificate both active: the domain serves.
+	 */
+	case Active = 'active';
+
+	/**
+	 * Still being verified or issued; ask again later.
+	 */
 	case Pending = 'pending';
-	case Failed  = 'failed';
+
+	/**
+	 * Given up: the hostname is blocked, moved or deleted, or the
+	 * certificate's validation timed out.
+	 */
+	case Failed = 'failed';
 
 	/**
 	 * Hostname statuses Cloudflare does not recover from.

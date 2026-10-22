@@ -130,6 +130,30 @@ final class CustomHostnamesTest extends TestCase {
 		$this->assertSame( CustomHostnames::API . '/zones/z%2F1/custom_hostnames/..%2Fx', $http->sent()[0]['url'] );
 	}
 
+	/**
+	 * rawurlencode() leaves `..` alone: DELETE .../custom_hostnames/.. is
+	 * DELETE /zones/{zone} once resolved — the zone deleted.
+	 */
+	public function test_a_dot_id_or_zone_is_never_sent(): void {
+		$http = Fake::strict();
+
+		$this->assertFalse( ( new CustomHostnames( 'tok', self::ZONE, $http ) )->delete( '..' ) );
+		$this->assertNull( ( new CustomHostnames( 'tok', self::ZONE, $http ) )->status( '.' ) );
+		$this->assertFalse( ( new CustomHostnames( 'tok', '..', $http ) )->delete( 'ch_1' ) );
+		$this->assertNull( ( new CustomHostnames( 'tok', '..', $http ) )->create( 'shop.example.com' ) );
+		$this->assertCount( 0, $http->requests );
+	}
+
+	public function test_a_result_that_is_not_an_object_is_nothing(): void {
+		$http = Fake::strict()->on( 'GET', '*', new Response( true, 200, '{"result":"x"}' ) );
+
+		$this->assertNull( ( new CustomHostnames( 'tok', self::ZONE, $http ) )->status( 'ch_1' ) );
+	}
+
+	public function test_a_dump_does_not_show_the_token(): void {
+		$this->assertStringNotContainsString( 'secret-token', print_r( new CustomHostnames( 'secret-token', self::ZONE ), true ) );
+	}
+
 	public function test_create_must_be_checked(): void {
 		$attributes = ( new \ReflectionMethod( CustomHostnames::class, 'create' ) )->getAttributes( \NoDiscard::class );
 

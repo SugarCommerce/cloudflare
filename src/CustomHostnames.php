@@ -46,6 +46,8 @@ readonly class CustomHostnames {
 	public const string API = 'https://api.cloudflare.com/client/v4';
 
 	/**
+	 * Hold the token and the zone it acts on.
+	 *
 	 * @since 1.0.0
 	 *
 	 * @param string $token API token with "SSL and Certificates: Edit" on the zone.
@@ -70,6 +72,17 @@ readonly class CustomHostnames {
 	}
 
 	/**
+	 * What var_dump() and print_r() show: the zone, with the token redacted.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function __debugInfo(): array {
+		return array( 'token' => '' === $this->token ? '' : '[redacted]', 'zone' => $this->zone );
+	}
+
+	/**
 	 * Start serving a hostname.
 	 *
 	 * @since 1.0.0
@@ -77,16 +90,22 @@ readonly class CustomHostnames {
 	 * @param string $hostname e.g. shop.example.com. Validate it first.
 	 * @param string $method   Certificate validation: `http` or `txt`.
 	 *
-	 * @return Hostname|null Null when Cloudflare refused.
+	 * @return Hostname|null Null when Cloudflare refused, or the zone is not one.
 	 */
 	#[\NoDiscard( 'Null means Cloudflare did not take the hostname.' )]
 	public function create( string $hostname, string $method = 'http' ): ?Hostname {
-		$response = $this->http->post_json( $this->url(), array(
+		$url = $this->url();
+
+		if ( '' === $url ) {
+			return null;
+		}
+
+		$response = $this->http->post_json( $url, array(
 			'hostname' => $hostname,
 			'ssl'      => array( 'method' => 'txt' === $method ? 'txt' : 'http', 'type' => 'dv' ),
 		), $this->auth() );
 
-		return $response->ok ? Hostname::from_array( (array) ( $response->json()['result'] ?? array() ) ) : null;
+		return $response->ok ? self::result( $response->json() ) : null;
 	}
 
 	/**
@@ -97,16 +116,18 @@ readonly class CustomHostnames {
 	 * @param string $id Cloudflare's id for it.
 	 *
 	 * @return Hostname|null Null when Cloudflare could not be asked, which is
-	 *                       not the same as failed.
+	 *                       not the same as failed, or the id is not one.
 	 */
 	public function status( string $id ): ?Hostname {
-		if ( '' === $id ) {
+		$url = '' === $id ? '' : $this->url( $id );
+
+		if ( '' === $url ) {
 			return null;
 		}
 
-		$response = $this->http->get( $this->url( $id ), $this->auth() );
+		$response = $this->http->get( $url, $this->auth() );
 
-		return $response->ok ? Hostname::from_array( (array) ( $response->json()['result'] ?? array() ) ) : null;
+		return $response->ok ? self::result( $response->json() ) : null;
 	}
 
 	/**
@@ -117,13 +138,20 @@ readonly class CustomHostnames {
 	 * @param string $id Cloudflare's id for it.
 	 *
 	 * @return bool True when it is gone, including when it already was.
+	 *              False, without asking, when the id or zone is not one.
 	 */
 	public function delete( string $id ): bool {
 		if ( '' === $id ) {
 			return true;
 		}
 
-		$response = $this->http->delete( $this->url( $id ), $this->auth() );
+		$url = $this->url( $id );
+
+		if ( '' === $url ) {
+			return false;
+		}
+
+		$response = $this->http->delete( $url, $this->auth() );
 
 		return $response->ok || 404 === $response->status;
 	}
@@ -131,12 +159,45 @@ readonly class CustomHostnames {
 	/**
 	 * The custom hostnames endpoint, or one hostname under it.
 	 *
+	 * rawurlencode() leaves `.` alone, so an id of `..` would be
+	 * /zones/{zone} once the path is resolved — and DELETE on that deletes
+	 * the zone. A zone or id made only of dots is refused.
+	 *
 	 * @param string $id Cloudflare's id, or '' for the collection.
 	 *
-	 * @return string
+	 * @return string The URL, or '' when the zone or id cannot be a path segment.
 	 */
 	private function url( string $id = '' ): string {
+		if ( '' === trim( $this->zone, '.' ) || ( '' !== $id && '' === trim( $id, '.' ) ) ) {
+			return '';
+		}
+
 		return self::API . '/zones/' . rawurlencode( $this->zone ) . '/custom_hostnames' . ( '' === $id ? '' : '/' . rawurlencode( $id ) );
+	}
+
+	/**
+	 * The hostname in a response's `result`.
+	 *
+	 * @param mixed $json Decoded response body.
+	 *
+	 * @return Hostname|null Null when there is no result with an id.
+	 */
+	private static function result( mixed $json ): ?Hostname {
+		$result = is_array( $json ) ? ( $json['result'] ?? null ) : null;
+
+		if ( ! is_array( $result ) ) {
+			return null;
+		}
+
+		$fields = array();
+
+		foreach ( $result as $key => $value ) {
+			if ( is_string( $key ) ) {
+				$fields[ $key ] = $value;
+			}
+		}
+
+		return Hostname::from_array( $fields );
 	}
 
 	/**
